@@ -1,7 +1,8 @@
 package org.example.services;
 
 import org.example.animals.*;
-import org.example.container.DIContainer;
+import org.example.repositories.AnimalRepository;
+import org.example.repositories.MemoryAnimalRepository;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -9,17 +10,11 @@ import java.util.List;
 
 class ZooServiceTest {
 
-    private DIContainer createTestContainer() {
-        DIContainer container = new DIContainer();
-        container.register(VeterinaryClinic.class, new VeterinaryClinic());
-        return container;
-    }
-
     @Test
     void testAddAnimal() {
-        DIContainer container = createTestContainer();
-        ZooService zooService = new ZooService(container);
-        VeterinaryClinic clinic = container.resolve(VeterinaryClinic.class);
+        AnimalRepository animalRepository = new MemoryAnimalRepository();
+        VeterinaryClinic clinic = new VeterinaryClinic();
+        ZooService zooService = new ZooService(animalRepository, clinic);
         Rabbit rabbit = new Rabbit("Кролик", 2, 1001, 8);
 
         boolean result = zooService.addAnimal(rabbit, clinic);
@@ -29,8 +24,9 @@ class ZooServiceTest {
 
     @Test
     void testGetTotalFood() {
-        DIContainer container = createTestContainer();
-        ZooService zooService = new ZooService(container);
+        AnimalRepository animalRepository = new MemoryAnimalRepository();
+        VeterinaryClinic clinic = new VeterinaryClinic();
+        ZooService zooService = new ZooService(animalRepository, clinic);
 
         VeterinaryClinic mockClinic = new VeterinaryClinic() {
             @Override
@@ -53,8 +49,9 @@ class ZooServiceTest {
 
     @Test
     void testGetContactZooAnimals() {
-        DIContainer container = createTestContainer();
-        ZooService zooService = new ZooService(container);
+        AnimalRepository animalRepository = new MemoryAnimalRepository();
+        VeterinaryClinic clinic = new VeterinaryClinic();
+        ZooService zooService = new ZooService(animalRepository, clinic);
 
         VeterinaryClinic mockClinic = new VeterinaryClinic() {
             @Override
@@ -77,8 +74,9 @@ class ZooServiceTest {
 
     @Test
     void testGetAllAnimals() {
-        DIContainer container = createTestContainer();
-        ZooService zooService = new ZooService(container);
+        AnimalRepository animalRepository = new MemoryAnimalRepository();
+        VeterinaryClinic clinic = new VeterinaryClinic();
+        ZooService zooService = new ZooService(animalRepository, clinic);
 
         VeterinaryClinic mockClinic = new VeterinaryClinic() {
             @Override

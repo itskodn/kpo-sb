@@ -1,27 +1,29 @@
 package org.example.container;
 
-import org.example.services.VeterinaryClinic;
+import org.example.services.ZooService;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DIContainerTest {
+
     @Test
     void testRegisterAndResolve() {
         DIContainer container = new DIContainer();
-        VeterinaryClinic clinic = new VeterinaryClinic();
+        String testInstance = "test";
 
-        container.register(VeterinaryClinic.class, clinic);
-        VeterinaryClinic resolved = container.resolve(VeterinaryClinic.class);
+        container.register(String.class, testInstance);
+        String resolved = container.resolve(String.class);
 
-        assertNotNull(resolved);
-        assertEquals(clinic, resolved);
+        assertEquals(testInstance, resolved);
     }
 
     @Test
-    void testResolveNotRegistered() {
+    void testZooServiceResolution() {
         DIContainer container = new DIContainer();
-        VeterinaryClinic resolved = container.resolve(VeterinaryClinic.class);
 
-        assertNull(resolved);
+        ZooService zooService = container.resolve(ZooService.class);
+
+        assertNotNull(zooService);
+        assertNotNull(zooService.getAllAnimals());
     }
 }
