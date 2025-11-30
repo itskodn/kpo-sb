@@ -1,0 +1,5 @@
+rootProject.name = 'antiplag'
+
+include 'gateway'
+include 'filestore'
+include 'analysis'

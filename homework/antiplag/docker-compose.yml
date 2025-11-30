@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  filestore:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: filestore
+    environment:
+      - FILESTORE_BASE_PATH=/data/files
+    volumes:
+      - ./data/files:/data/files
+    ports:
+      - "8081:8081"
+
+  analysis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: analysis
+    environment:
+      - FILESTORE_URL=http://filestore:8081
+    depends_on:
+      - filestore
+    ports:
+      - "8082:8082"
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: gateway
+    environment:
+      - FILESTORE_URL=http://filestore:8081
+      - ANALYSIS_URL=http://analysis:8082
+    depends_on:
+      - filestore
+      - analysis
+    ports:
+      - "8080:8080"

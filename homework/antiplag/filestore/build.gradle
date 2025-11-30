@@ -1,0 +1,3 @@
+dependencies {
+    // Uses defaults from parent (spring-boot-starter-web, tests)
+}
