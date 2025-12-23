@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      default-filters:
+        - PreserveHostHeader
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedHeaders: "*"
+            allowedMethods: "*"
+      routes:
+        - id: orders
+          uri: http://orders-service:8081
+          predicates:
+            - Path=/api/orders/**
+        - id: payments
+          uri: http://payments-service:8082
+          predicates:
+            - Path=/api/wallets/**
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

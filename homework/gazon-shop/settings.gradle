@@ -1,0 +1,3 @@
+rootProject.name = 'gazon-shop'
+
+include 'common', 'orders-service', 'payments-service', 'api-gateway', 'frontend'

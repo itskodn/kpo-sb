@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Gazon Shop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #1b0d1c;
+            --card: rgba(255, 255, 255, 0.07);
+            --stroke: rgba(255, 255, 255, 0.1);
+            --accent: #ff6fb7;
+            --accent-2: #ffc2e5;
+            --text: #fff6fb;
+            --muted: #c9a7c2;
+            --danger: #ff8c9e;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Manrope', Arial, sans-serif; margin: 0; padding: 32px; background: radial-gradient(110% 120% at 15% 20%, #3a103c, #1b0d1c); color: var(--text); }
+        h1 { margin: 0 0 12px; font-size: 30px; letter-spacing: 0.5px; color: var(--accent-2); }
+        h2 { margin: 0 0 12px; color: var(--accent); font-size: 18px; }
+        .subtitle { color: var(--muted); margin-bottom: 24px; }
+        .card { background: var(--card); border: 1px solid var(--stroke); border-radius: 14px; padding: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); backdrop-filter: blur(6px); }
+        label { display: block; margin: 8px 0 6px; color: var(--muted); font-size: 13px; }
+        input { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--stroke); width: 100%; background: rgba(255,255,255,0.05); color: var(--text); }
+        button { margin-top: 10px; padding: 10px 14px; border: none; border-radius: 10px; background: linear-gradient(120deg, #ff7fc7, #ff4fa7); color: #1b0d1c; font-weight: 700; cursor: pointer; transition: transform 0.1s ease, box-shadow 0.2s ease; }
+        button:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(255,127,199,0.35); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+        .panel { margin-top: 16px; border: 1px dashed var(--stroke); border-radius: 12px; padding: 12px; font-size: 13px; color: var(--muted); min-height: 90px; background: rgba(255,255,255,0.02); }
+        .order-list { display: grid; gap: 10px; margin: 8px 0; }
+        .order-card { border: 1px solid var(--stroke); border-radius: 12px; padding: 10px 12px; background: rgba(255,255,255,0.03); display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+        .order-meta { font-size: 12px; color: var(--muted); }
+        .order-amount { font-weight: 700; }
+        .chip { padding: 4px 8px; border-radius: 8px; font-weight: 700; font-size: 12px; }
+        .chip.success { background: rgba(124,231,172,0.15); color: var(--accent); }
+        .chip.failed { background: rgba(255,140,158,0.15); color: var(--danger); }
+        .chip.pending { background: rgba(249,211,66,0.15); color: var(--accent-2); }
+        .ws-log { white-space: pre-line; font-family: 'Manrope', monospace; color: var(--text); }
+        .row-inline { display: flex; gap: 8px; flex-wrap: wrap; }
+        .row-inline button { flex: 1; min-width: 140px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+</head>
+<body>
+<h1>Gazon Shop Demo</h1>
+<div class="subtitle">Wallet + Orders, Kafka + WebSocket. Укажи userId и жми кнопки.</div>
+
+<div class="card">
+    <label>userId (X-User-Id)</label>
+    <input id="userId" value="demo-user"/>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h2>Кошелек</h2>
+        <div class="row-inline">
+            <button onclick="createWallet()">Создать кошелек</button>
+            <button onclick="balance()">Баланс</button>
+        </div>
+        <label>Сумма пополнения</label>
+        <input id="topup" type="number" value="500"/>
+        <button onclick="topUp()">Пополнить</button>
+        <div class="panel" id="walletPanel">Баланс еще не запрошен</div>
+    </div>
+
+    <div class="card">
+        <h2>Заказы</h2>
+        <label>Сумма заказа</label>
+        <input id="orderAmount" type="number" value="250"/>
+        <div class="row-inline">
+            <button onclick="createOrder()">Создать заказ</button>
+            <button onclick="listOrders()">Список заказов</button>
+        </div>
+        <div class="panel" id="ordersPanel">Заказы еще не загружены</div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>WebSocket статусы</h2>
+    <p class="subtitle" style="margin: 0 0 12px;">Подписка включается при создании заказа. Ниже лента обновлений.</p>
+    <div class="panel ws-log" id="wsLog">Ждем событий...</div>
+</div>
+
+<script>
+    const apiBase = 'http://localhost:8080';
+    const wsBase = 'ws://localhost:8181/ws';
+    let stompClient;
+    let wsConnected = false;
+
+    function headers() {
+        return { 'Content-Type': 'application/json', 'X-User-Id': document.getElementById('userId').value };
+    }
+
+    async function createWallet() {
+        const res = await fetch(`${apiBase}/api/wallets`, { method: 'POST', headers: headers() });
+        renderWallet(await res.json());
+    }
+
+    async function topUp() {
+        const amount = Number(document.getElementById('topup').value);
+        const res = await fetch(`${apiBase}/api/wallets/top-up`, { method: 'POST', headers: headers(), body: JSON.stringify({ amount }) });
+        renderWallet(await res.json());
+    }
+
+    async function balance() {
+        const res = await fetch(`${apiBase}/api/wallets/balance`, { headers: headers() });
+        renderWallet(await res.json());
+    }
+
+    async function createOrder() {
+        const amount = Number(document.getElementById('orderAmount').value);
+        const res = await fetch(`${apiBase}/api/orders`, { method: 'POST', headers: headers(), body: JSON.stringify({ amount }) });
+        const order = await res.json();
+        renderOrders([order]);
+        connectWs(order.id);
+    }
+
+    async function listOrders() {
+        const res = await fetch(`${apiBase}/api/orders`, { headers: headers() });
+        renderOrders(await res.json());
+    }
+
+    function connectWs(orderId) {
+        if (!stompClient || !wsConnected) {
+            const socket = new WebSocket(wsBase);
+            stompClient = Stomp.over(socket);
+            stompClient.debug = () => {};
+            stompClient.connect({}, () => { wsConnected = true; subscribe(orderId); });
+        } else {
+            subscribe(orderId);
+        }
+    }
+
+    function subscribe(orderId) {
+        stompClient.subscribe(`/topic/orders/${orderId}`, (msg) => {
+            const payload = JSON.parse(msg.body);
+            appendWs(`Заказ ${payload.orderId}: ${payload.status} @ ${payload.updatedAt}`);
+        });
+        appendWs(`Подписка на заказ ${orderId}`);
+    }
+
+    function appendWs(text) {
+        const el = document.getElementById('wsLog');
+        el.textContent = (el.textContent.startsWith('Ждем') ? '' : el.textContent + '\n') + text;
+    }
+
+    function renderWallet(data) {
+        const el = document.getElementById('walletPanel');
+        el.innerHTML = `<div><strong>Пользователь:</strong> ${data.userId}</div>
+                        <div><strong>Баланс:</strong> ${data.balance}</div>
+                        <div><strong>Обновлено:</strong> ${data.updatedAt}</div>`;
+    }
+
+    function renderOrders(list) {
+        if (!Array.isArray(list)) list = [list];
+        const el = document.getElementById('ordersPanel');
+        if (!list.length) {
+            el.textContent = 'Нет заказов';
+            return;
+        }
+        const cards = list.map(o => `
+            <div class="order-card">
+                <div>
+                    <div class="order-amount">Заказ на ${o.amount}</div>
+                    <div class="order-meta">ID: ${o.id}</div>
+                    <div class="order-meta">Создан: ${o.createdAt}</div>
+                </div>
+                <div>${statusChip(o.status)}</div>
+            </div>
+        `).join('');
+        el.innerHTML = `<div class="order-list">${cards}</div>`;
+    }
+
+    function statusChip(status) {
+        const cls = status === 'PAID' ? 'success' : status === 'PAYMENT_FAILED' ? 'failed' : 'pending';
+        return `<span class="chip ${cls}">${status}</span>`;
+    }
+</script>
+</body>
+</html>
